@@ -18,7 +18,7 @@ public class DHTClient
             InetAddress ip = InetAddress.getByName("localhost"); 
       
             // establish the connection with server port 5056 
-            Socket s = new Socket(ip, 7432); 													
+            Socket s = new Socket(ip, 7431); 													
       
             // obtaining input and out streams 
             DataInputStream dis = new DataInputStream(s.getInputStream()); 
@@ -42,6 +42,7 @@ public class DHTClient
                 { 
                     System.out.println("Closing this connection : " + s); 
                     s.close(); 
+                    System.out.println("System Exietd gracefully");
                     System.out.println("Connection closed"); 
                     break; 
                 }

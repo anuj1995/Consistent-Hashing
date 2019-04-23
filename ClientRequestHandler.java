@@ -48,8 +48,8 @@ class ClientRequestHandler extends Thread
                 received = dis.readUTF(); 
                 if(received.equals("Exit")) 
                 {  
+                	ns.Exit(ns);
                     System.out.println("Client " + this.s + " sends exit..."); 
-                    System.out.println("Closing this "+"."); 
                     this.s.close(); 
                     System.out.println("Connection closed"); 
                     break; 
@@ -66,17 +66,22 @@ class ClientRequestHandler extends Thread
                           
                     case "enter" :
                     	ns.Enter(ns.bootStrapIp,ns.bootStrapPort,ns);
+                    	Thread.sleep(1000);
                     	dos.writeUTF("sucessful entry");
-                    	dos.writeUTF("The key range is: "+ ns.predessorID +" - "+ ns.id);
+                    	dos.writeUTF("The key range is: "+ (ns.predessorID + 1)  +" - "+ ns.id);
                     	dos.writeUTF("predessor ID: "+ns.predessorID +" Sucessor ID:" + ns.successorID);
                     	ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
                     	os.writeObject(ns.trail);
+                    	
                     default: 
                         break; 
                 } 
             } catch (IOException | ClassNotFoundException e) { 
                 e.printStackTrace(); 
-            } 
+            } catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} 
         } 
           
         try

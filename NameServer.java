@@ -7,10 +7,14 @@ import java.nio.file.Paths;
 import java.io.*; 
 import java.util.*; 
 
-public class NameServer{
+public class NameServer implements Serializable{
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	int id;
 	int serverPort;
-	String serverIP;
+	String serverIp;
 	int predessorID;
 	String predessorIp;
 	int predessorPort;
@@ -45,14 +49,20 @@ public class NameServer{
 		    }
 		    sc.close();
 		    InetAddress inetAddress = InetAddress.getLocalHost();
-		    this.serverIP = inetAddress.getHostAddress();
+		    this.serverIp = inetAddress.getHostAddress();
+		    this.successorID = 0 ;
+		    this.successorIp = null;
+		    this.successorPort  = -1;
+		    this.predessorID = 0;
+		    this.predessorPort = -1;
+		    this.predessorIp = null;
 		    
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 			}
 	  	}
-	public void Enter (String bootStrapIp, int bootStrapPort ,NameServer ns) throws ClassNotFoundException {
+	public void Enter (String bootStrapIp, int bootStrapPort, NameServer ns ) throws ClassNotFoundException {
 		try {
 			Socket s = new Socket(bootStrapIp, bootStrapPort);
 			DataInputStream dis = new DataInputStream(s.getInputStream()); 
@@ -63,7 +73,7 @@ public class NameServer{
 			if(situation == 0) {
 				//sending the request id to bootstrap server
 				dos.writeInt(ns.id);
-				dos.writeUTF(ns.serverIP); 
+				dos.writeUTF(ns.serverIp); 
 				dos.writeInt(ns.serverPort);
 				//recieving the responses from bootstrap server
 				ns.successorID = dis.readInt();
@@ -77,8 +87,16 @@ public class NameServer{
     			ObjectInputStream is = new ObjectInputStream(s.getInputStream());
     			data = (HashMap<Integer,String>) is.readObject();
     			trail.add(predessorID);
+    			System.out.println("SID: "+ ns.successorID);
+    			System.out.println("PID: " + ns.predessorID);
+    			s.close();
 			}
 			else {
+				dos.writeInt(ns.id);
+				dos.writeUTF(ns.serverIp); 
+				dos.writeInt(ns.serverPort);
+				ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
+				os.writeObject(ns.trail);
 				
 			}
 					
@@ -88,30 +106,92 @@ public class NameServer{
 		} 	
 		
 	}
-	public void exit() {
+	public void Exit ( NameServer ns ) throws ClassNotFoundException {
+		// Update sucessor.
+		Socket s;
+		try {
+			s = new Socket(ns.successorIp, ns.successorPort);
+			DataInputStream dis = new DataInputStream(s.getInputStream()); 
+	        DataOutputStream dos = new DataOutputStream(s.getOutputStream());
+	        dos.writeUTF("Name server has forwarded a Exit request id: " + ns.id);
+			dos.writeUTF("Update sucessor request");
+			dos.writeInt(ns.predessorID);
+	        dos.writeUTF(ns.predessorIp);
+	        dos.writeInt(ns.predessorPort);
+	        ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
+	        os.writeObject(ns.data);
+	        s.close();
+		} catch (UnknownHostException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		//update predecessor
+		try {
+			s = new Socket(ns.predessorIp, ns.predessorPort);
+			DataInputStream dis = new DataInputStream(s.getInputStream()); 
+	        DataOutputStream dos = new DataOutputStream(s.getOutputStream());
+	        dos.writeUTF("Name server has forwarded a Exit request id: " + ns.id);
+			dos.writeUTF("Update predessor request");
+			dos.writeInt(ns.successorID);
+	        dos.writeUTF(ns.successorIp);
+	        dos.writeInt(ns.successorPort);
+	        s.close();
+		} catch (UnknownHostException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	
+        
+		
+	}
+	
+	private void forwardEntryRequest(int requestID,String requestIp, int requestPort ,int successorID, String successorIp ,
+			int successorPort, ArrayList<Integer> trail)
+	{
+		Socket s;
+		try {
+			s = new Socket(successorIp, successorPort);
+			System.out.println("request has been forwarded to" + successorID);
+			DataInputStream dis = new DataInputStream(s.getInputStream()); 
+	        DataOutputStream dos = new DataOutputStream(s.getOutputStream());
+	        dos.writeUTF("Name server has forwarded a request id:" + requestID);
+	        dos.writeUTF("Forwarding entry request");
+	        dos.writeInt(requestID);
+	        dos.writeUTF(requestIp);
+	        dos.writeInt(requestPort);
+	        trail.add(id);
+	        ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
+	        os.writeObject(trail);
+	        s.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 	}
 	
 	public static void main(String Args[])throws IOException  {
 		// server is listening on port 6000 
 		NameServer ns = new NameServer("nsConfigFile.txt");
-        @SuppressWarnings("static-access")
-		ServerSocket ss = new ServerSocket(ns.serverPort); 
+        ServerSocket ss = new ServerSocket(ns.serverPort); 
         
         // running infinite loop for getting 
         // client request 
         while (true)  
         { 
-            Socket s = null; 
+            Socket s = null;
             try { 
 	            // socket object to receive incoming client requests 
 	            s = ss.accept(); 
-	            System.out.println("A new client is connected : " + s); 
-	
 	            // obtaining input and out streams 
 	            DataInputStream dis = new DataInputStream(s.getInputStream()); 
 	            DataOutputStream dos = new DataOutputStream(s.getOutputStream()); 
-	              
 	            String recieved = dis.readUTF();
 	            System.out.println(recieved);
 	            if(recieved.contains("client")) {
@@ -126,8 +206,104 @@ public class NameServer{
 	            	System.out.println(message);
 	            	switch(message)
 	            	{
-	            	case"Forwarding request":
+	            	case"Forwarding entry request":
 	            		
+	            		int requestID = dis.readInt();
+	            		String requestIp = dis.readUTF();
+	            		int requestPort = dis.readInt();
+	            		ObjectInputStream is = new ObjectInputStream(s.getInputStream());
+	            		ArrayList<Integer> t =  (ArrayList<Integer>) is.readObject();
+	            		if((requestID > ns.predessorID && requestID < ns.id) ){
+	            			//successor found
+	            			//update keys
+	            			int newPredessorID = ns.predessorID;
+	            			String newPredessorIp = ns.predessorIp;
+	            			int newPredessorPort = ns.predessorPort;
+	            			t.add(ns.id);
+	            			HashMap<Integer,String> subMap = new HashMap<Integer,String>();
+	            			ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
+	            			for(Map.Entry<Integer, String> entry : ns.data.entrySet())
+	            			{
+	            				int currentID = entry.getKey();
+	            				String currentValue = entry.getValue();
+	            				if(currentID > ns.predessorID && currentID <= requestID)
+	            				{
+	            					subMap.put(currentID,currentValue);
+	            				}
+	            			}
+	            			for(Map.Entry<Integer, String> entry : subMap.entrySet())
+	            			{
+	            				int currentID = entry.getKey();
+	            				String currentValue = entry.getValue();
+	            				if(ns.data.containsKey(currentID))
+	            				{
+	            					ns.data.remove(currentID,currentValue);
+	            				}
+	            			}
+	            			// update sucessor and predessor
+	            			ns.predessorID = requestID;
+	            			ns.predessorIp = requestIp;
+	            			ns.predessorPort = requestPort;
+	            			System.out.println("SID: "+ns.successorID);
+	            			System.out.println("PID: " + ns.predessorID);
+	            			// sending data to the request server 
+	            			Socket a = new Socket(requestIp, requestPort);
+	            			dis = new DataInputStream(a.getInputStream()); 
+	            	        dos = new DataOutputStream(a.getOutputStream());
+	            	        dos.writeUTF("Name server has arrived a response for id:" + requestID);
+	            	        dos.writeUTF("Accepting Forwarding Request");
+	            	        dos.writeInt(ns.id);
+	        				dos.writeUTF(ns.serverIp); 
+	        				dos.writeInt(ns.serverPort);
+	        				dos.writeInt(newPredessorID);
+	        				dos.writeUTF(newPredessorIp); 
+	        				dos.writeInt(newPredessorPort);
+	        				os = new ObjectOutputStream(a.getOutputStream());
+	            	        os.writeObject(subMap);
+	            	        os.writeObject(t);
+	            			a.close();
+	            		}
+	            		else{
+		            		ns.forwardEntryRequest(requestID, requestIp, requestPort, ns.successorID, ns.successorIp, ns.successorPort, t);
+		            		if((requestID >ns.id && requestID < ns.successorID) || (requestID > ns.id && ns.successorID == 0) ){
+		            			ns.successorID = requestID;
+		            			ns.successorIp = requestIp;
+		            			ns.successorPort = requestPort;
+		            			System.out.println("SID: "+ns.successorID);
+		            			System.out.println("PID: " + ns.predessorID);
+		            		}
+	            		}
+	            		break;
+	            	case "Accepting Forwarding Request":
+	            		ns.successorID = dis.readInt();
+	            		ns.successorIp = dis.readUTF();
+	            		ns.successorPort = dis.readInt();
+	            		ns.predessorID = dis.readInt();
+	            		ns.predessorIp = dis.readUTF();
+	            		ns.predessorPort = dis.readInt();
+	            		ObjectInputStream is1 = new ObjectInputStream(s.getInputStream());
+	            		ns.data =  (HashMap<Integer, String>) is1.readObject();
+	            		ns.trail = (ArrayList<Integer>) is1.readObject();
+	            		break;
+	            	
+	            	case "Update predessor request":
+	            		dis = new DataInputStream(s.getInputStream());
+	            		ns.successorID = dis.readInt();
+	            		ns.successorIp = dis.readUTF();
+	            		ns.successorPort = dis.readInt();
+	            		break;
+	            		
+	            	case "Update sucessor request":
+	            		dis = new DataInputStream(s.getInputStream());
+	            		ns.predessorID = dis.readInt();
+	            		ns.predessorIp = dis.readUTF();
+	            		ns.predessorPort = dis.readInt();
+	            		is = new ObjectInputStream(s.getInputStream());
+	            		HashMap<Integer, String> temp =  (HashMap<Integer, String>) is.readObject();
+	            		for(Map.Entry<Integer, String> entry : temp.entrySet())
+	            		{
+	            			ns.data.put(entry.getKey(), entry.getValue());
+	            		}
 	            		break;
 	            	}
 	            }
