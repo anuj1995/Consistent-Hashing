@@ -18,13 +18,14 @@ public class DHTClient
             InetAddress ip = InetAddress.getByName("localhost"); 
       
             // establish the connection with server port 5056 
-            Socket s = new Socket(ip, 7431); 													
+            Socket s = new Socket(ip, 7432); 													
       
             // obtaining input and out streams 
             DataInputStream dis = new DataInputStream(s.getInputStream()); 
             DataOutputStream dos = new DataOutputStream(s.getOutputStream()); 
             
             dos.writeUTF("client has made a connection with the server");
+            System.out.println(dis.readUTF());
             // the following loop performs the exchange of 
             // information between client and client handler 
             while (true)  
@@ -37,16 +38,18 @@ public class DHTClient
                 dos.writeUTF(tosend); 
                   
                 // If client sends exit,close this connection  
-                // and then break from the while loop 
-                if(tosend.equals("Exit")) 
+                // and then break from the while loop
+                
+                String[] split = tosend.split(" ");
+                if(split[0].equals("Exit")) 
                 { 
                     System.out.println("Closing this connection : " + s); 
                     s.close(); 
-                    System.out.println("System Exietd gracefully");
+                    System.out.println("System Exited gracefully");
                     System.out.println("Connection closed"); 
                     break; 
                 }
-                else if(tosend.equals("enter"))
+                else if(split[0].equals("enter"))
                 {
                 	System.out.println(dis.readUTF());
                 	System.out.println(dis.readUTF());
@@ -55,6 +58,29 @@ public class DHTClient
                 	System.out.println("Server contacted are:");
                 	@SuppressWarnings("unchecked")
 					ArrayList<Integer> trail =  (ArrayList<Integer>) is.readObject();
+                	for(int i = 0; i < trail.size(); i++) {   
+                	    System.out.println(trail.get(i));
+                	}
+                }
+                else if(split[0].equals("lookup"))
+                {
+                	System.out.println(dis.readUTF());
+                	ObjectInputStream is = new ObjectInputStream(s.getInputStream());
+                	@SuppressWarnings("unchecked")
+                	ArrayList<Integer> trail =  (ArrayList<Integer>) is.readObject();
+                	System.out.println("request is fetched from server with ID: " + trail.get(trail.size() -1));
+                	System.out.println("Server contacted are:");
+                	for(int i = 0; i < trail.size(); i++) {   
+                	    System.out.println(trail.get(i));
+                	}
+                }
+                else if(split[0].equals("insert")) {
+                	System.out.println(dis.readUTF());
+                	ObjectInputStream is = new ObjectInputStream(s.getInputStream());
+                	@SuppressWarnings("unchecked")
+                	ArrayList<Integer> trail =  (ArrayList<Integer>) is.readObject();
+                	System.out.println("request is fetched from server with ID: " + trail.get(trail.size() -1));
+                	System.out.println("Server contacted are:");
                 	for(int i = 0; i < trail.size(); i++) {   
                 	    System.out.println(trail.get(i));
                 	}

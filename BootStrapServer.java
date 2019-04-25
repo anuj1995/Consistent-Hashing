@@ -20,6 +20,8 @@ public class BootStrapServer{
 	int successorPort;
 	String slash;
 	String OS;
+	String lookKeyResponse;
+	ArrayList<Integer> lookupTrail =   new ArrayList<Integer>();
 	HashMap<Integer,String> data = new HashMap<Integer,String>();
 	public BootStrapServer(String fileName) throws UnknownHostException{
 		
@@ -49,6 +51,7 @@ public class BootStrapServer{
 		    this.predessorID = 0;
 		    this.predessorPort = -1;
 		    this.predessorIp = null;
+		    this.lookKeyResponse = null;
 		    
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
@@ -56,14 +59,75 @@ public class BootStrapServer{
 			}
 		
 	  	}
-	public String lookupKey (Integer key) {
-		return null;
+	public void lookupKey (Integer key, BootStrapServer bs) {
+		// check if the key belongs here
+		bs.lookupTrail.add(bs.id);
+		if (key > bs.predessorID) {
+			//key is at bootstrap
+			String value = bs.data.get(key);
+			if(value != null) {
+				bs.lookKeyResponse = value;
+			}
+			else{
+				bs.lookKeyResponse = "key not found";
+			}
+		}
+		// forward the request to successor
+		else {
+			bs.forwardLookupRequest(key, bs.successorID, bs.successorIp, bs.successorPort, bs.lookupTrail);
+		}
 	}
-	public void InsertKeyValue(Integer key, String Value) {
-	
+	public void InsertKeyValue(Integer key, String Value,BootStrapServer bs) {
+		// check if the key is to be inserted here
+		bs.lookupTrail.add(bs.id);
+		if (key > bs.predessorID) {
+			bs.data.put(key, Value);
+		}
+		else {
+			bs.forwardInsertRequest(key, Value, bs.successorID, bs.successorIp, successorPort, lookupTrail);
+		}
 	}
 	public void DeleteKey(Integer key) {
 		
+	}
+	
+	public void forwardInsertRequest(int key, String Value, int successorID, String successorIp ,
+			int successorPort, ArrayList<Integer> lookupTrail) {
+		Socket s;
+		try {
+			s = new Socket(successorIp, successorPort);
+			System.out.println(" insert request has been forwarded to ID: " + successorID);
+	        DataOutputStream dos = new DataOutputStream(s.getOutputStream());
+	        dos.writeUTF("Boostrap server has forwarded insert request");
+	        dos.writeUTF("Forwarding insert request");
+	        dos.writeInt(key);
+	        dos.writeUTF(Value);
+	        ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
+	        os.writeObject(lookupTrail);
+	        s.close();
+	        }catch (Exception e) {
+				// TODO: handle exception
+	        	e.printStackTrace();
+			}
+	}
+	
+	public void forwardLookupRequest(int key, int successorID, String successorIp ,
+			int successorPort, ArrayList<Integer> lookupTrail) {
+		Socket s;
+		try {
+			s = new Socket(successorIp, successorPort);
+			System.out.println(" look up request has been forwarded to ID: " + successorID);
+	        DataOutputStream dos = new DataOutputStream(s.getOutputStream());
+	        dos.writeUTF("Boostrap server has forwarded lookup request");
+	        dos.writeUTF("Forwarding lookup request");
+	        dos.writeInt(key);
+	        ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
+	        os.writeObject(lookupTrail);
+	        s.close();
+	        }catch (Exception e) {
+				// TODO: handle exception
+	        	e.printStackTrace();
+			}
 	}
 
 	private void forwardEntryRequest(int requestID,String requestIp, int requestPort ,int successorID, String successorIp ,
@@ -73,7 +137,6 @@ public class BootStrapServer{
 		try {
 			s = new Socket(successorIp, successorPort);
 			System.out.println("request has been forwarded to" + successorID);
-			DataInputStream dis = new DataInputStream(s.getInputStream()); 
 	        DataOutputStream dos = new DataOutputStream(s.getOutputStream());
 	        dos.writeUTF("Name server has forwarded a request id:" + requestID);
 	        dos.writeUTF("Forwarding entry request");
@@ -259,6 +322,17 @@ public class BootStrapServer{
 	            		{
 	            			bs.data.put(entry.getKey(), entry.getValue());
 	            		}
+	            		break;
+	            	case "Update lookup response":
+	            		dis = new DataInputStream(s.getInputStream());
+	            		bs.lookKeyResponse = dis.readUTF();
+	            		is = new ObjectInputStream(s.getInputStream());
+	            		bs.lookupTrail =  (ArrayList<Integer>) is.readObject();
+	            		break;
+	            		
+	            	case "Forwarding insert request":
+	            		is = new ObjectInputStream(s.getInputStream());
+	            		bs.lookupTrail =  (ArrayList<Integer>) is.readObject();
 	            		break;
 	            	case "Exit":
 	            		break;

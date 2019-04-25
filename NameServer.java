@@ -4,6 +4,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.awt.Insets;
 import java.io.*; 
 import java.util.*; 
 
@@ -146,11 +147,25 @@ public class NameServer implements Serializable{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-	
-        
-		
 	}
-	
+	public void forwardLookupRequest(int key, int successorID, String successorIp ,
+			int successorPort, ArrayList<Integer> lookupTrail) {
+		Socket s;
+		try {
+			s = new Socket(successorIp, successorPort);
+			System.out.println(" look up request has been forwarded to ID: " + successorID);
+	        DataOutputStream dos = new DataOutputStream(s.getOutputStream());
+	        dos.writeUTF("Boostrap server has forwarded lookup request");
+	        dos.writeUTF("Forwarding lookup request");
+	        dos.writeInt(key);
+	        ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
+	        os.writeObject(lookupTrail);
+	        s.close();
+	        }catch (Exception e) {
+				// TODO: handle exception
+	        	e.printStackTrace();
+			}
+	}
 	private void forwardEntryRequest(int requestID,String requestIp, int requestPort ,int successorID, String successorIp ,
 			int successorPort, ArrayList<Integer> trail)
 	{
@@ -174,6 +189,26 @@ public class NameServer implements Serializable{
 			e.printStackTrace();
 		}
 		
+	}
+	
+	public void forwardInsertRequest(int key, String Value, int successorID, String successorIp ,
+			int successorPort, ArrayList<Integer> lookupTrail) {
+		Socket s;
+		try {
+			s = new Socket(successorIp, successorPort);
+			System.out.println(" insert request has been forwarded to ID: " + successorID);
+	        DataOutputStream dos = new DataOutputStream(s.getOutputStream());
+	        dos.writeUTF("Boostrap server has forwarded insert request");
+	        dos.writeUTF("Forwarding insert request");
+	        dos.writeInt(key);
+	        dos.writeUTF(Value);
+	        ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
+	        os.writeObject(lookupTrail);
+	        s.close();
+	        }catch (Exception e) {
+				// TODO: handle exception
+	        	e.printStackTrace();
+			}
 	}
 	
 	public static void main(String Args[])throws IOException  {
@@ -305,6 +340,53 @@ public class NameServer implements Serializable{
 	            			ns.data.put(entry.getKey(), entry.getValue());
 	            		}
 	            		break;
+	            	case "Forwarding lookup request":
+	            		dis = new DataInputStream(s.getInputStream());
+	            		int lookupKey = dis.readInt();
+	            		is = new ObjectInputStream(s.getInputStream());
+	            		ArrayList<Integer> lookupTrail = (ArrayList<Integer>) is.readObject();
+	            		lookupTrail.add(ns.id);
+	            		// check if the key belongs here
+	            		if( lookupKey <=  ns.id && lookupKey > ns.predessorID ) {
+	            			String response = ns.data.get(lookupKey);
+	            			// update the response to bootstarp server
+	            			Socket s1 = new Socket(ns.bootStrapIp, ns.bootStrapPort); 
+	                        dos = new DataOutputStream(s1.getOutputStream());
+	            			dos.writeUTF("Name server has forwarded a lookup update");
+	            			dos.writeUTF("Update lookup response");
+	            			if(response == null) {
+	            				response = "Key not found";
+	            			}
+	            			dos.writeUTF(response);
+	            			ObjectOutputStream os = new ObjectOutputStream(s1.getOutputStream());
+	            			os.writeObject(lookupTrail);
+	            			s1.close();
+	            		}
+	            		else {
+	            			ns.forwardLookupRequest(lookupKey, ns.successorID, ns.successorIp, ns.successorPort, lookupTrail);
+	            		}
+	            		break;
+	            	case"Forwarding insert request":
+	            		dis = new DataInputStream(s.getInputStream());
+	            		int insertKey = dis.readInt();
+	            		String value = dis.readUTF(); 
+	            		is = new ObjectInputStream(s.getInputStream());
+	            		ArrayList<Integer> insertTrail = (ArrayList<Integer>) is.readObject();
+	            		insertTrail.add(ns.id);
+	            		// check if the key is to tobe inseted here
+	            		if(insertKey > ns.predessorID && insertKey <= ns.id) {
+	            			ns.data.put(insertKey, value);
+	            			Socket s1 = new Socket(ns.bootStrapIp, ns.bootStrapPort); 
+	                        dos = new DataOutputStream(s1.getOutputStream());
+	            			dos.writeUTF("Name server has forwarded a lookup update");
+	            			dos.writeUTF("Update lookup response");
+	            			ObjectOutputStream os = new ObjectOutputStream(s1.getOutputStream());
+	            			os.writeObject(insertTrail);
+	            			s1.close();
+	            		}
+	            		else {
+	            			ns.forwardInsertRequest(insertKey, value, ns.successorID, ns.successorIp, ns.successorPort, insertTrail);
+	            		}
 	            	}
 	            }
             } 
