@@ -18,14 +18,13 @@ public class DHTClient
             InetAddress ip = InetAddress.getByName("localhost"); 
       
             // establish the connection with server port 5056 
-            Socket s = new Socket(ip, 7432); 													
+            Socket s = new Socket(ip,7433); 													
       
             // obtaining input and out streams 
             DataInputStream dis = new DataInputStream(s.getInputStream()); 
             DataOutputStream dos = new DataOutputStream(s.getOutputStream()); 
             
             dos.writeUTF("client has made a connection with the server");
-            System.out.println(dis.readUTF());
             // the following loop performs the exchange of 
             // information between client and client handler 
             while (true)  
@@ -75,6 +74,17 @@ public class DHTClient
                 	}
                 }
                 else if(split[0].equals("insert")) {
+                	System.out.println(dis.readUTF());
+                	ObjectInputStream is = new ObjectInputStream(s.getInputStream());
+                	@SuppressWarnings("unchecked")
+                	ArrayList<Integer> trail =  (ArrayList<Integer>) is.readObject();
+                	System.out.println("request is fetched from server with ID: " + trail.get(trail.size() -1));
+                	System.out.println("Server contacted are:");
+                	for(int i = 0; i < trail.size(); i++) {   
+                	    System.out.println(trail.get(i));
+                	}
+                }
+                else if(split[0].equals("delete")) {
                 	System.out.println(dis.readUTF());
                 	ObjectInputStream is = new ObjectInputStream(s.getInputStream());
                 	@SuppressWarnings("unchecked")

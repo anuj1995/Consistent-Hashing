@@ -87,8 +87,34 @@ public class BootStrapServer{
 			bs.forwardInsertRequest(key, Value, bs.successorID, bs.successorIp, successorPort, lookupTrail);
 		}
 	}
-	public void DeleteKey(Integer key) {
-		
+	public void DeleteKey(Integer key, BootStrapServer bs) {
+		bs.lookupTrail.add(bs.id);
+		// check if the key is deleted here
+		if (key > bs.predessorID) {
+			bs.data.remove(key);
+		}
+		else {
+			bs.forwardDeleteRequest(key, bs.successorID, bs.successorIp, bs.successorPort, bs.lookupTrail);
+		}
+	}
+	
+	public void forwardDeleteRequest(int key, int successorID, String successorIp ,
+			int successorPort, ArrayList<Integer> lookupTrail) {
+		Socket s;
+		try {
+			s = new Socket(successorIp, successorPort);
+			System.out.println("delete request has been forwarded to ID: " + successorID);
+	        DataOutputStream dos = new DataOutputStream(s.getOutputStream());
+	        dos.writeUTF("Boostrap server has forwarded delete request");
+	        dos.writeUTF("Forwarding delete request");
+	        dos.writeInt(key);
+	        ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
+	        os.writeObject(lookupTrail);
+	        s.close();
+	        }catch (Exception e) {
+				// TODO: handle exception
+	        	e.printStackTrace();
+			}
 	}
 	
 	public void forwardInsertRequest(int key, String Value, int successorID, String successorIp ,
@@ -177,7 +203,7 @@ public class BootStrapServer{
 		            // create a new thread object 
 	            	System.out.println("Assigning new thread for this client");
 	            	 // Invoking the start() method 
-		            Thread c = new ClientRequestHandler(s, dis, dos, bs);
+		            Thread c = new BootStrapRequestHandler(s, dis, dos, bs);
 		            c.start();
 	            }
 	            else {
@@ -330,7 +356,12 @@ public class BootStrapServer{
 	            		bs.lookupTrail =  (ArrayList<Integer>) is.readObject();
 	            		break;
 	            		
-	            	case "Forwarding insert request":
+	            	case "Update insert response":
+	            		is = new ObjectInputStream(s.getInputStream());
+	            		bs.lookupTrail =  (ArrayList<Integer>) is.readObject();
+	            		break;
+	            		
+	            	case "Update delete response":
 	            		is = new ObjectInputStream(s.getInputStream());
 	            		bs.lookupTrail =  (ArrayList<Integer>) is.readObject();
 	            		break;

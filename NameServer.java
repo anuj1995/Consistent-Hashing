@@ -107,6 +107,7 @@ public class NameServer implements Serializable{
 		} 	
 		
 	}
+	
 	public void Exit ( NameServer ns ) throws ClassNotFoundException {
 		// Update sucessor.
 		Socket s;
@@ -147,6 +148,25 @@ public class NameServer implements Serializable{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+	
+	public void forwardDeleteRequest(int key, int successorID, String successorIp ,
+			int successorPort, ArrayList<Integer> lookupTrail) {
+		Socket s;
+		try {
+			s = new Socket(successorIp, successorPort);
+			System.out.println("delete request has been forwarded to ID: " + successorID);
+	        DataOutputStream dos = new DataOutputStream(s.getOutputStream());
+	        dos.writeUTF("Boostrap server has forwarded delete request");
+	        dos.writeUTF("Forwarding delete request");
+	        dos.writeInt(key);
+	        ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
+	        os.writeObject(lookupTrail);
+	        s.close();
+	        }catch (Exception e) {
+				// TODO: handle exception
+	        	e.printStackTrace();
+			}
 	}
 	public void forwardLookupRequest(int key, int successorID, String successorIp ,
 			int successorPort, ArrayList<Integer> lookupTrail) {
@@ -233,7 +253,7 @@ public class NameServer implements Serializable{
 		            // create a new thread object 
 	            	System.out.println("Assigning new thread for this client");
 	            	 // Invoking the start() method 
-		            Thread c = new ClientRequestHandler(s, dis, dos, ns);
+		            Thread c = new NameServerRequestHandler(s, dis, dos, ns);
 		            c.start();
 	            }
 	            else {
@@ -378,8 +398,8 @@ public class NameServer implements Serializable{
 	            			ns.data.put(insertKey, value);
 	            			Socket s1 = new Socket(ns.bootStrapIp, ns.bootStrapPort); 
 	                        dos = new DataOutputStream(s1.getOutputStream());
-	            			dos.writeUTF("Name server has forwarded a lookup update");
-	            			dos.writeUTF("Update lookup response");
+	            			dos.writeUTF("Name server has forwarded a insert update");
+	            			dos.writeUTF("Update insert response");
 	            			ObjectOutputStream os = new ObjectOutputStream(s1.getOutputStream());
 	            			os.writeObject(insertTrail);
 	            			s1.close();
@@ -387,6 +407,28 @@ public class NameServer implements Serializable{
 	            		else {
 	            			ns.forwardInsertRequest(insertKey, value, ns.successorID, ns.successorIp, ns.successorPort, insertTrail);
 	            		}
+	            		break;
+	            	case"Forwarding delete request":
+	            		dis = new DataInputStream(s.getInputStream());
+	            		int deleteKey = dis.readInt();
+	            		is = new ObjectInputStream(s.getInputStream());
+	            		ArrayList<Integer> deleteTrail = (ArrayList<Integer>) is.readObject();
+	            		deleteTrail.add(ns.id);
+	            		// check if the key is to to be deleted here
+	            		if(deleteKey > ns.predessorID && deleteKey <= ns.id) {
+	            			ns.data.remove(deleteKey);
+	            			Socket s1 = new Socket(ns.bootStrapIp, ns.bootStrapPort); 
+	                        dos = new DataOutputStream(s1.getOutputStream());
+	            			dos.writeUTF("Name server has forwarded a lookup update");
+	            			dos.writeUTF("Update delete response");
+	            			ObjectOutputStream os = new ObjectOutputStream(s1.getOutputStream());
+	            			os.writeObject(deleteTrail);
+	            			s1.close();
+	            		}
+	            		else{
+	            			ns.forwardDeleteRequest(deleteKey, ns.successorID, ns.successorIp, ns.successorPort, deleteTrail);
+	            		}
+	            		break;
 	            	}
 	            }
             } 
